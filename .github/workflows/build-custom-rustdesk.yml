@@ -1,0 +1,77 @@
+name: Build custom RustDesk (no secure_tcp)
+
+on:
+  workflow_dispatch:    # 手动点一下就能跑
+  push:
+    paths:
+      - "src/**"
+      - ".github/workflows/build-custom-rustdesk.yml"
+
+env:
+  DEFAULT_RENDEZVOUS_SERVER: ${{ secrets.DEFAULT_RENDEZVOUS_SERVER }}
+  DEFAULT_RELAY_SERVER: ${{ secrets.DEFAULT_RELAY_SERVER }}
+  DEFAULT_RS_PUB_KEY: ${{ secrets.DEFAULT_RS_PUB_KEY }}
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libasound2-dev \
+            libgtk-3-dev cmake curl git
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build (Linux)
+        env:
+          RENDEZVOUS_SERVER: ${{ secrets.DEFAULT_RENDEZVOUS_SERVER }}
+          RELAY_SERVER: ${{ secrets.DEFAULT_RELAY_SERVER }}
+          RS_PUB_KEY: ${{ secrets.DEFAULT_RS_PUB_KEY }}
+        run: |
+          cargo build --release
+          mkdir -p artifacts/linux
+          cp target/release/rustdesk artifacts/linux/
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-linux
+          path: artifacts/linux/
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build (Windows)
+        env:
+          RENDEZVOUS_SERVER: ${{ secrets.DEFAULT_RENDEZVOUS_SERVER }}
+          RELAY_SERVER: ${{ secrets.DEFAULT_RELAY_SERVER }}
+          RS_PUB_KEY: ${{ secrets.DEFAULT_RS_PUB_KEY }}
+        run: |
+          cargo build --release --bin rustdesk
+          mkdir artifacts
+          copy target\release\rustdesk.exe artifacts\rustdesk.exe
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-windows
+          path: artifacts\
